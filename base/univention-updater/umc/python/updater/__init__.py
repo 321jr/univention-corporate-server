@@ -262,7 +262,7 @@ class Instance(Base):
 
 						_maintained_status = patchlevel.get('status', 'unmaintained')
 						maintenance_extended = _maintained_status == 'extended'
-						show_warning = maintenance_extended or not _maintained_status
+						show_warning = maintenance_extended or _maintained_status != 'maintained'
 
 						return {
 							'ucs_version': str(version),
