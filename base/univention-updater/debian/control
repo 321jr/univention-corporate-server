@@ -62,6 +62,7 @@ Depends:
  python-apt,
  python-debian,
  python-six,
+ python-requests,
  python-univention (>> 5.0.6),
  python-univention-config-registry,
  python-univention-directory-manager,
