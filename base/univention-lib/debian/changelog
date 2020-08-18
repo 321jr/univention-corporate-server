@@ -1,4 +1,4 @@
-univention-lib (9.0.0-38) UNRELEASED; urgency=medium
+univention-lib (9.0.0-38) unstable; urgency=medium
 
   * Bug #51622: Revert --ucsversionstart 5.0-0 default for
                 univention-* packages
