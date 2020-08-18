@@ -38,6 +38,7 @@ from hashlib import md5
 import subprocess
 import psutil
 import pipes
+import json
 import requests
 from datetime import datetime
 from urlparse import urljoin
@@ -243,13 +244,21 @@ class Instance(Base):
 			return default
 
 		version = self.uu.current_version
+		url = urljoin(UcsRepoUrl(ucr, 'repository/online').private(), 'releases.json')
 		try:
-			url = urljoin(UcsRepoUrl(ucr, 'repository/online').private(), '/releases.json')
-			response = requests.get(url, timeout=10)
-			if not response.ok:
-				response.raise_for_status()
-
-			json = response.json()
+			if url.startswith('file://'):
+				with open(url, 'r') as releases_fd:
+					releases = json.load(releases_fd)
+			else:
+				response = requests.get(url, timeout=10)
+				if not response.ok:
+					response.raise_for_status()
+				json = response.json()
+		except (requests.exceptions.RequestException, EnvironmentError) as exc:
+			MODULE.error("Querying maintenance information failed: %s" % (exc,))
+		except ValueError as exc:
+			MODULE.error('The JSON format is malformed: %s' % (exc,))
+		try:
 			for majors in json['releases']:
 				if majors['major'] != version.major:
 					continue
@@ -272,10 +281,8 @@ class Instance(Base):
 						}
 					break
 				break
-		except requests.exceptions.RequestException as exc:
-			MODULE.error("Querying maintenance information failed: %s" % (exc,))
-		except Exception as exc:
-			MODULE.error('The JSON format is malformed: %s' % (exc,))
+		except KeyError as exc:
+			MODULE.error('The JSON format is missing keys: %s' % (exc,))
 
 		return default
 
