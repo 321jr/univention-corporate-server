@@ -1,8 +1,8 @@
-#!/bin/bash
+#!/bin/sh
 
 eval "$(univention-config-registry shell version/version version/patchlevel)"
 
-required_version="4.4-5"
+required_version="4.4-6"
 
 if dpkg --compare-versions "${version_version}-${version_patchlevel}" lt "$required_version"; then
 
