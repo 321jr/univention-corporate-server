@@ -66,7 +66,7 @@ import socket
 from univention.config_registry import ConfigRegistry
 import urllib2
 from urlparse import urljoin
-import requests
+import json
 import subprocess
 import new
 import tempfile
@@ -977,16 +977,14 @@ class UniventionUpdater(object):
     def get_releases(server):
         # type: (_UCSServer) -> Iterator[UCS_Version]
         try:
-            url = urljoin(str(server), '/releases.json')
-            response = requests.get(url, timeout=10)
-            if not response.ok:
-                response.raise_for_status()
-            releases = response.json()['releases']
-        except requests.exceptions.RequestException as exc:
-            ud.debug(ud.NETWORK, ud.ERROR, 'Querying maintenance information failed: %s' % (exc,))
+            _code, _size, releases = server.access(None, 'releases.json', get=True)
+        except DownloadError as e:
+            ud.debug(ud.NETWORK, ud.ALL, "%s" % e)
             raise StopIteration
-        except (KeyError, ValueError) as exc:
-            ud.debug(ud.NETWORK, ud.ERROR, 'Maintenance information malformed: %s' % (exc,))
+        try:
+            releases = json.loads(releases)['releases']
+        except (ValueError, KeyError) as exc:
+            ud.debug(ud.NETWORK, ud.ERROR, 'Querying maintenance information failed: %s' % (exc,))
             if isinstance(server, UCSHttpServer) and server.proxy_handler.proxies:
                 ud.debug(ud.NETWORK, ud.WARN, 'Maintenance information malformed, blocked by proxy?')
             raise StopIteration

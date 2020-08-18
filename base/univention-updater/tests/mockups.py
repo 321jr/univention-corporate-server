@@ -8,6 +8,9 @@ import sys
 import os.path
 import errno
 import httplib
+import json
+from itertools import groupby
+from operator import itemgetter
 import univention
 univention.__path__.insert(0, os.path.abspath('modules/univention'))
 import univention.updater.tools as U  # noqa: E402
@@ -181,6 +184,28 @@ def verbose(verbose_mode=True):
     else:
         level = U.ud.ERROR
     U.ud.set_level(U.ud.NETWORK, level)
+
+
+def gen_releases(releases): # type: (Iterator[Tuple[int, int, int]]) -> str
+    """Generate a releases.json string from a list of given releases"""
+    data = dict(
+        releases=[
+            dict(
+                major=major,
+                minors=[
+                    dict(
+                        minor=minor,
+                        patchlevels=[
+                            dict(
+                                patchlevel=patchlevel,
+                            ) for major, minor, patchlevel in patchelevels
+                        ]
+                    ) for minor, patchelevels in groupby(minors, key=itemgetter(1))
+                ]
+            ) for major, minors in groupby(releases, key=itemgetter(0))
+        ]
+    )
+    return json.dumps(data)
 
 
 sys.modules['univention.updater.tools'].ConfigRegistry = MockConfigRegistry
