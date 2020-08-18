@@ -257,10 +257,10 @@ class UCSRepoPool5(_UCSRepo):
         :returns: The APT repository stanza.
         :rtype: str
 
-        >>> r=UCSRepoPool5(major=5,minor=1,patchlevel=0)
+        >>> r=UCSRepoPool5(major=5, minor=1, patchlevel=0)
         >>> r.deb('https://updates.software-univention.de/')
         'deb https://updates.software-univention.de/ ucs510 main'
-        >>> r=UCSRepoPool5(major=5,minor=1,patchlevel=0,errata=True)
+        >>> r=UCSRepoPool5(major=5, minor=1, patchlevel=0, errata=True)
         >>> r.deb('https://updates.software-univention.de/')
         'deb https://updates.software-univention.de/ errata510 main'
         """
@@ -280,10 +280,10 @@ class UCSRepoPool5(_UCSRepo):
         :returns: relative path.
         :rtype: str
 
-        >>> UCSRepoPool5(major=5,minor=1,patchlevel=0).path()
-        'dists/ucs500/InRelease'
-        >>> UCSRepoPool5(major=5,minor=1,patchlevel=0,errata=True).path()
-        'dists/errata500/InRelease'
+        >>> UCSRepoPool5(major=5, minor=1, patchlevel=0).path()
+        'dists/ucs510/InRelease'
+        >>> UCSRepoPool5(major=5, minor=1, patchlevel=0, errata=True).path()
+        'dists/errata510/InRelease'
         """
         if not self.errata:
             fmt = 'dists/ucs'
