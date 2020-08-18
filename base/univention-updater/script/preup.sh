@@ -463,7 +463,7 @@ check_overwritten_umc_templates
 
 
 check_minimum_ucs_version_of_all_systems_in_domain () {  # Bug #51621
-	(python - >&3 2>&3 || exit $?) <<- EOF
+	(/usr/bin/python2.7 - >&3 2>&3 || exit $?) <<- EOF
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 import sys
@@ -475,29 +475,35 @@ lo = univention.uldap.getMachineConnection()
 ucr = univention.config_registry.ConfigRegistry()
 ucr.load()
 
-REQUIRED_VERSION = '4.4-5'
+REQUIRED_VERSION = '4.4-6'
 
-for dn, attr in lo.search('(&(univentionOperatingSystemVersion=*)(univentionOperatingSystem=Univention Corporate Server))', attr=['univentionOperatingSystemVersion']):
-	if lo.compare_dn(dn, ucr['ldap/hostdn']):
-		continue
+blocking_computers = []
+for dn, attr in lo.search('(&(univentionOperatingSystemVersion=*)(univentionOperatingSystem=Univention Corporate Server)(!(univentionObjectFlag=docker)))', attr=['univentionOperatingSystemVersion']):
 	if LooseVersion(attr['univentionOperatingSystemVersion'][0].decode('UTF-8', 'replace')) < LooseVersion(REQUIRED_VERSION):
-		print('XXX', file=sys.stderr)
-		sys.exit(1)
+		blocking_computers.append(dn)
 
-for dn, attr in lo.search('(|(univentionUCSVersionEnd=*)(univentionUCSVersionStart=*))'):
-	ucsversionstart = attr.get('univentionUCSVersionStart', [b'']).decode('UTF-8', 'replace')
-	ucsversionend = attr.get('univentionUCSVersionEnd', [b'']).decode('UTF-8', 'replace')
+blocking_objects = []
+for dn, attr in lo.search('(|(univentionUCSVersionEnd=*)(univentionUCSVersionStart=*))', attr=['univentionUCSVersionStart', 'univentionUCSVersionEnd']):
+	ucsversionstart = attr.get('univentionUCSVersionStart', [b''])[0].decode('UTF-8', 'replace')
+	ucsversionend = attr.get('univentionUCSVersionEnd', [b''])[0].decode('UTF-8', 'replace')
 	if ucsversionstart and LooseVersion(ucsversionstart) >= LooseVersion('5.0-0'):
 		continue
 	if ucsversionend and LooseVersion(ucsversionend) < LooseVersion('5.0-0'):
 		continue
-	if (not ucsversionstart or LooseVersion(ucsversionstart) < LooseVersion('5.0-0')) and ucsversionend:
-		print('XXX', file=sys.stderr)
-		sys.exit(1)
+	if ucsversionstart and LooseVersion(ucsversionstart) < LooseVersion('5.0-0') and ucsversionend:
+		continue
+	blocking_objects.append('%s: UCS start version: %s; UCS end version: %s' % (dn, ucsversionstart or 'unspecified', ucsversionend or 'unspecified'))
 
+if blocking_computers:
+	print('The upgrade to UCS 5.0 is blocked because there exists systems joined into the domain wich have not been upgraded to UCS %s:\n%s\n' % (REQUIRED_VERSION, '\n'.join(blocking_computers)), file=sys.stderr)
+if blocking_objects:
+	print('The upgrade to UCS 5.0 is blocked because the following extensions are not yet marked as UCS 5.0 compatible:\n%s' % '\n'.join(blocking_objects), file=sys.stderr)
+
+if blocking_computers or blocking_objects:
+	sys.exit(1)
 EOF
 }
-check_minimum_ucs_version_of_all_systems_in_domain
+[ "$server_role" = "domaincontroller_master" ] && check_minimum_ucs_version_of_all_systems_in_domain
 
 # ensure that en_US is included in list of available locales (Bug #44150)
 case "$locale" in
