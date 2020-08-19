@@ -249,9 +249,60 @@ class Instance(umcm.Base, ProgressMixin):
 		ret['apps'] = domain.to_dict(apps)
 		return ret
 
-	@simple_response
-	def run(self):
-		pass
+	@require_apps_update
+	@require_password
+	@sanitize(
+		apps=ListSanitizer(AppSanitizer(), required=True),
+		auto_installed=ListSanitizer(required=True),
+		action=ChoicesSanitizer(['install', 'upgrade', 'remove'], required=True),
+		hosts=DictSanitizer({}, required=True),
+		settings=DictSanitizer({}, required=True),
+		dry_run=BooleanSanitizer(),
+	)
+	@simple_response(with_progress=True)
+	def run(self, progress, apps, auto_installed, action, hosts, settings, dry_run):
+		localhost = '{hostname}.{domainname}'.format(**self.ucr)
+		ret = {}
+		for app in apps:
+			host = hosts[app.id]
+			_settings = settings[app.id]
+			_auto_installed = app.id in auto_installed
+			progress.title = _('%s: Running tests') % app.name
+			if host == localhost:
+				if dry_run:
+					ret[app.id] = self._run_local_dry_run(app, action, _settings)
+				else:
+					ret[app.id] = self._run_local(app, action, _settings)
+			else:
+				if dry_run:
+					ret[app.id] = self._run_remote_dry_run(host, app, action, _auto_installed, _settings)
+				else:
+					ret[app.id] = self._run_remote(host, app, action, _auto_installed, _settings)
+		return ret
+
+	def _run_local_dry_run(self, app, action, settings):
+		ret = {}
+		ret['errors'], ret['warnings'] = check([app], action)
+		ret['errors'].pop('must_have_no_unmet_dependencies', None)  # has to be resolved prior to this call!
+		action = get_action(action)()
+		args = action._build_namespace(app=app, dry_run=True, install_master_packages_remotely=False, only_master_packages=False)
+		ret.update(action.dry_run(app, args))
+		return ret
+
+	def _run_local(self, app, action, settings):
+		raise NotImplementedError()
+
+	def _run_remote_dry_run(self, host, app, action, auto_installed, settings):
+		client = self._remote_appcenter(host, function='appcenter/run')
+		auto_installed = [app.id] if auto_installed else []
+		opts = {'app': [str(app)], 'auto_installed': auto_installed, 'action': action, 'hosts': {app.id: host}, 'settings': {app.id: settings}, 'dry_run': True}
+		return client.umc_command('appcenter/run', opts).result
+
+	def _run_remote(self, host, app, action, auto_installed, settings):
+		client = self._remote_appcenter(host, function='appcenter/run')
+		auto_installed = [app.id] if auto_installed else []
+		opts = {'app': [str(app)], 'auto_installed': auto_installed, 'action': action, 'hosts': {app.id: host}, 'settings': {app.id: settings}, 'dry_run': False}
+		return client.umc_command('appcenter/run', opts).result
 
 	@simple_response
 	def query(self, quick=False):

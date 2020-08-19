@@ -27,10 +27,29 @@
 # License with the Debian GNU/Linux or Univention distribution in file
 # /usr/share/common-licenses/AGPL-3; if not, see
 # <https://www.gnu.org/licenses/>.
+#
+
+ANYTHING = object()
 
 
+def assert_called_with(mock, *argss):
+	assert mock.call_count == len(argss)
+	for call, (args, kwargs) in zip(mock.call_args_list, argss):
+		call = call.call_list()
+		assert len(call[0][0]) == len(args)
+		assert len(call[0][1]) == len(kwargs)
+		for call_arg, assert_arg in zip(call[0][0], args):
+			if assert_arg is ANYTHING:
+				continue
+			assert call_arg == assert_arg
+		for key, assert_arg in kwargs.items():
+			call_arg = call[0][1][key]
+			if assert_arg is ANYTHING:
+				continue
+			assert call_arg == assert_arg
 
-def test_resolve(custom_apps, appcenter_umc_instance, get_action, umc_request, mocker):
+
+def test_resolve(mocked_ucr, custom_apps, appcenter_umc_instance, umc_request):
 	custom_apps.load('unittests/inis/umc/')
 	umc_request.options = {'apps': ['riot'], 'action': 'install'}
 	appcenter_umc_instance.resolve(umc_request)
@@ -43,3 +62,17 @@ def test_resolve(custom_apps, appcenter_umc_instance, get_action, umc_request, m
 	assert isinstance(umc_request.result['errors'], dict)
 	assert 'warnings' in umc_request.result
 	assert isinstance(umc_request.result['warnings'], dict)
+
+
+def test_run(mocked_ucr, custom_apps, appcenter_umc_instance, umc_request, mocker):
+	custom_apps.load('unittests/inis/umc/')
+	localhost = '{hostname}.{domainname}'.format(**mocked_ucr)
+	settings = {'riot/default/base_url': '/riot', 'riot/default/server_name': localhost}
+	umc_request.options = {'apps': ['riot'], 'action': 'install', 'auto_installed': [], 'hosts': {'riot': localhost}, 'settings': {'riot': settings}, 'dry_run': True}
+	mock = mocker.patch.object(appcenter_umc_instance, '_run_local_dry_run')
+	mocker.patch.object(appcenter_umc_instance, '_run_local')
+	mocker.patch.object(appcenter_umc_instance, '_run_remote_dry_run')
+	mocker.patch.object(appcenter_umc_instance, '_run_remote')
+	appcenter_umc_instance.run(umc_request)
+	umc_request.progress(appcenter_umc_instance.progress)
+	assert_called_with(mock, [(custom_apps.find('riot'), 'install', settings), {}])
