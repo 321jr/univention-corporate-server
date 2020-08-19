@@ -1,3 +1,9 @@
+univention-unittests (2.0.0-13) unstable; urgency=medium
+
+  * Bug #51819: Support progress in UMC methods
+
+ -- Dirk Wiesenthal <wiesenthal@univention.de> <wiesenthal@univention.de>  Wed, 19 Aug 2020 23:57:28 +0200
+
 univention-unittests (2.0.0-12) unstable; urgency=medium
 
   * Bug #40225: Adding more mocked UDM connection functions
