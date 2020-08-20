@@ -478,7 +478,7 @@ ucr.load()
 REQUIRED_VERSION = '4.4-6'
 
 blocking_computers = []
-for dn, attr in lo.search('(&(univentionOperatingSystemVersion=*)(univentionOperatingSystem=Univention Corporate Server)(!(univentionObjectFlag=docker)))', attr=['univentionOperatingSystemVersion']):
+for dn, attr in lo.search('(&(univentionOperatingSystemVersion=*)(univentionOperatingSystem=Univention Corporate Server))', attr=['univentionOperatingSystemVersion']):
 	if LooseVersion(attr['univentionOperatingSystemVersion'][0].decode('UTF-8', 'replace')) < LooseVersion(REQUIRED_VERSION):
 		blocking_computers.append(dn)
 
