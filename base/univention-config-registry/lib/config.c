@@ -89,7 +89,7 @@ _filter(int *fd_stdin, int *fd_stdout)
 		dup2(p_stdin[READ], READ);
 		close(p_stdout[READ]);
 		dup2(p_stdout[WRITE], WRITE);
-		execl("/usr/sbin/univention-config-registry", "ucr", "filter", NULL);
+		execl("/usr/sbin/univention-config-registry", "ucr", "filter", "--disallow-execution", NULL);
 		perror("execl");
 		exit(1);
 	}
