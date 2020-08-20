@@ -692,18 +692,11 @@ class _DefaultConfigRegistry(_ConfigRegistry):
 		except RuntimeError:  # maximum recursion depth exceeded
 			return ''
 
-	# Implement the dict contract...
-	# TODO: copy(), viewitems(), viewvalues()
-
 	def get(self, key, default=None):
 		try:
 			return self[key]
 		except KeyError:
 			return default
-
-	if six.PY2:
-		def iteritems(self):
-			return dict((key, self[key]) for key in self).iteritems()
 
 	def items(self):
 		return dict((key, self[key]) for key in self).items()
@@ -712,6 +705,9 @@ class _DefaultConfigRegistry(_ConfigRegistry):
 		return dict((key, self[key]) for key in self).values()
 
 	if six.PY2:
+		def iteritems(self):
+			return dict((key, self[key]) for key in self).iteritems()
+
 		def itervalues(self):
 			return dict((key, self[key]) for key in self).itervalues()
 
