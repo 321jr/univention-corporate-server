@@ -688,7 +688,7 @@ class _DefaultConfigRegistry(_ConfigRegistry):
 	def __getitem__(self, key):  # type: ignore
 		value = super(_DefaultConfigRegistry, self).__getitem__(key)
 		try:
-			return run_filter(value, self.parent)
+			return run_filter(value, self.parent, opts={'disallow-execution': True})
 		except RuntimeError:  # maximum recursion depth exceeded
 			return ''
 
