@@ -47,11 +47,8 @@
 
 #define BASECONFIG_MAX_LINE 1024
 
-#include <sys/types.h>
-#include <fcntl.h>
-
-#define READ 0
-#define WRITE 1
+#define VARIABLE_TOKEN "@%@"
+#define VARIABLE_TOKEN_LEN strlen(VARIABLE_TOKEN)
 
 static const char *SCOPES[] = {
 	"forced",
@@ -69,43 +66,9 @@ static const char *LAYERS[] = {
 			"/etc/univention/base.conf",
 			"/etc/univention/base-defaults.conf",
 			NULL};
+char *univention_config_filter(const char *key);
 
-
-pid_t
-_filter(int *fd_stdin, int *fd_stdout)
-{
-	int p_stdin[2], p_stdout[2];
-	pid_t pid;
-
-	if (pipe(p_stdin) != 0 || pipe(p_stdout) != 0)
-		return -1;
-
-	pid = fork();
-	if (pid < 0) {
-		return pid;
-	} else if (pid == 0)
-	{
-		close(p_stdin[WRITE]);
-		dup2(p_stdin[READ], READ);
-		close(p_stdout[READ]);
-		dup2(p_stdout[WRITE], WRITE);
-		execl("/usr/sbin/univention-config-registry", "ucr", "filter", "--disallow-execution", NULL);
-		perror("execl");
-		exit(1);
-	}
-
-	if (fd_stdin == NULL)
-		close(p_stdin[WRITE]);
-	else
-		*fd_stdin = p_stdin[WRITE];
-	if (fd_stdout == NULL)
-		close(p_stdout[READ]);
-	else
-		*fd_stdout = p_stdout[READ];
-	return pid;
-}
-
-char *univention_config_get_string(const char *key)
+char *_univention_config_get_string(const char *key, int recursion)
 {
 	FILE *file;
 	char line[BASECONFIG_MAX_LINE];
@@ -145,19 +108,8 @@ char *univention_config_get_string(const char *key)
 				}
 				ret = strndup(value, vlen);
 				fclose(file);
-				if (LAYERS[i] == "/etc/univention/base-defaults.conf" && NULL != strstr(ret, "@%@")) {
-					int fd_stdin, fd_stdout;
-
-					if (_filter(&fd_stdin, &fd_stdout) <= 0)  // FIXME: stderr
-					{
-						univention_debug(UV_DEBUG_CONFIG, UV_DEBUG_ERROR, "Error executing ucr filter");
-						ret = NULL;
-						goto done;
-					}
-
-					write(fd_stdin, ret, sizeof(ret) + 1);
-					close(fd_stdin);
-					read(fd_stdout, ret, BASECONFIG_MAX_LINE);  /* FIXME!!!: this is wrong... */
+				if (LAYERS[i] == "/etc/univention/base-defaults.conf" && recursion) {
+					ret = univention_config_filter(ret);
 				}
 				goto done;
 			}
@@ -170,6 +122,46 @@ char *univention_config_get_string(const char *key)
 done:
 	free(nvalue);
 	return ret;
+}
+
+char *univention_config_get_string(const char *key)
+{
+	return _univention_config_get_string(key, 1);
+}
+
+char *univention_config_filter(const char *key)
+{
+	char *content, *result, *end, *start;
+	int content_length;
+
+	result = key;
+	while (NULL != (start = strstr(key, VARIABLE_TOKEN)) && NULL != (end = strstr(start + VARIABLE_TOKEN_LEN, VARIABLE_TOKEN))) {
+
+		content_length = end - start - VARIABLE_TOKEN_LEN;
+		content = malloc(content_length + 1);
+		if (content == NULL) {
+			univention_debug(UV_DEBUG_CONFIG, UV_DEBUG_ERROR, "malloc failed");
+			return NULL;
+		}
+		strncpy(content, start + VARIABLE_TOKEN_LEN, content_length);
+		content[content_length] = '\x00';
+
+		content = _univention_config_get_string(content, 0);
+		if (content == NULL) {
+			content = "";
+		}
+
+		result = malloc((start - key) + strlen(content) + strlen(end) - VARIABLE_TOKEN_LEN);
+		if (result == NULL) {
+			univention_debug(UV_DEBUG_CONFIG, UV_DEBUG_ERROR, "malloc(2) failed");
+			return NULL;
+		}
+		snprintf(result, start - key + 1, "%s", key);
+		sprintf(result + strlen(result), "%s%s", content, end + VARIABLE_TOKEN_LEN);
+		key = result;
+	}
+
+	return result;
 }
 
 int univention_config_get_int(const char *key)
